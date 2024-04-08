@@ -1,3 +1,4 @@
+use macroquad::rand::gen_range;
 use macroquad::prelude::*;
 
 
@@ -6,10 +7,18 @@ struct Position {
     y: f32,
 }
 
-struct Circle {
+struct Particle {
     x: f32,
     y: f32,
     radius: f32,
+    color: Color,
+    velocity: f32,
+    acceleration: f32,
+}
+
+struct Line {
+    start: Position,
+    end: Position,
     color: Color,
 }
 
@@ -20,66 +29,65 @@ fn lerp(start: &Position, end: &Position, t: f32) -> Position {
     }
 }
 
+fn fall_under_gravity(particle: &mut Particle, g: f32, t: f32) {
+    particle.y = particle.y + particle.velocity * t + 0.5 * (g - particle.acceleration) * t * t;
+    particle.velocity = particle.velocity + g * t;
+}
+
 #[macroquad::main("Particle Life")]
 async fn main() {
     let width = screen_width();
     let height = screen_height();
     let radius = 10.0;
-    let mut t = 0.0;
-    let speed = 0.2;
+    let t = 0.1;
+    let restitution = 0.6;
 
-    let mut c1 : Circle = Circle {
-        x: width / 2.0,
-        y: 60.0,
-        radius: radius,
-        color: RED,
+    let floor = Line {
+        start: Position { x: 0.0, y: height / 1.5 },
+        end: Position { x: width, y: height / 1.5 },
+        color: WHITE,
     };
 
-    let mut c2 : Circle = Circle {
-        x: width / 2.0,
-        y: 120.0,
-        radius: radius,
-        color: BLUE,
-    };
+    let mut particles : Vec<Particle> = Vec::new();
 
-    let mut c3 : Circle = Circle {
-        x: width / 2.0,
-        y: 180.0,
-        radius: radius,
-        color: GREEN,
-    };
+    for _i in 0..1 {
+        particles.push(Particle {
+            x: width / 2.0,
+            y: 50.0,
+            radius: radius,
+            color: WHITE,
+            velocity: 0.0,
+            acceleration: 0.0,
+        });
+    }
 
-    let start_point_c1 = Position {x: c1.x, y: c1.y};
-    let start_point_c2 = Position {x: c2.x, y: c2.y};
-    let start_point_c3 = Position { x: c3.x, y: c3.y };
+    let g = 10.0;
 
-    let end_point = Position { x: width, y: height / 2.0 };
-
-    loop {
+    loop { 
         clear_background(BLACK);
-        t += get_frame_time() * speed;
 
-        if t > 1.0 {
-            t = 1.0;
+        for particle in particles.iter_mut() {
+
+            if particle.y + particle.radius > floor.start.y {
+                particle.y = floor.start.y - particle.radius;
+                particle.velocity = -particle.velocity * restitution;
+                if particle.velocity.abs() < 10.0 {
+                    particle.velocity = 0.0;
+                }
+            }
+            fall_under_gravity(particle, g, t);
+            draw_circle(particle.x, particle.y, particle.radius, particle.color);
         }
 
-        let current_point_c1 = lerp(&start_point_c1, &end_point, t);
-        let current_point_c2 = lerp(&start_point_c2, &end_point, t);
-        let current_point_c3 = lerp(&start_point_c3, &end_point, t);
-        
-        c1.x = current_point_c1.x;
-        c1.y = current_point_c1.y;
 
-        c2.x = current_point_c2.x;
-        c2.y = current_point_c2.y;
-
-        c3.x = current_point_c3.x;
-        c3.y = current_point_c3.y;
-
-        draw_circle(c1.x, c1.y, c1.radius, c1.color);
-        draw_circle(c2.x, c2.y, c2.radius, c2.color);
-        draw_circle(c3.x, c3.y, c3.radius, c3.color);
-
+        draw_line(
+            floor.start.x,
+            floor.start.y,
+            floor.end.x,
+            floor.end.y,
+            2.0, 
+            floor.color,
+        );
         next_frame().await;
     }
 
