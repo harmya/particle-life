@@ -30,12 +30,6 @@ fn fall_under_gravity(particle: &mut Particle, g: f32, t: f32) {
     particle.velocity = particle.velocity + g * t;
 }
 
-fn bezier(p0: &Position, end_postion: &Position, hook: &Position, t: f32) -> Position {
-    return Position {
-        x: (1.0 - t) * (1.0 - t) * p0.x + 2.0 * (1.0 - t) * t * hook.x + t * t * end_postion.x,
-        y: (1.0 - t) * (1.0 - t) * p0.y + 2.0 * (1.0 - t) * t * hook.y + t * t * end_postion.y,
-    };
-}
 
 #[macroquad::main(window_conf)]
 async fn main() {
