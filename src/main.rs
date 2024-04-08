@@ -1,7 +1,6 @@
 use macroquad::rand::gen_range;
 use macroquad::prelude::*;
 
-
 struct Position {
     x: f32,
     y: f32,
@@ -30,6 +29,14 @@ fn fall_under_gravity(particle: &mut Particle, g: f32, t: f32) {
     particle.velocity = particle.velocity + g * t;
 }
 
+fn get_random_color() -> Color {
+    Color {
+        r: gen_range(0.0, 1.0),
+        g: gen_range(0.0, 1.0),
+        b: gen_range(0.0, 1.0),
+        a: 1.0,
+    }
+}
 
 #[macroquad::main(window_conf)]
 async fn main() {
@@ -48,14 +55,14 @@ async fn main() {
 
     let mut particles: Vec<Particle> = Vec::new();
 
-    for i in 0..10 {
+    for i in 0..15 {
         particles.push(Particle {
             position: Position {
                 x: i as f32 * 60.0 + 60.0,
                 y: 60.0,
             },
             radius: radius,
-            color: WHITE,
+            color: get_random_color(),
             velocity: gen_range(0.0, 10.0),
         });
     }
