@@ -39,8 +39,9 @@ async fn main() {
     let width = screen_width();
     let height = screen_height();
     let radius = 10.0;
-    let t = 0.1;
+    let mut t = 0.1;
     let restitution = 0.6;
+    let speed = 5.0;
 
     let floor = Line {
         start: Position { x: 0.0, y: height / 1.5 },
@@ -65,13 +66,13 @@ async fn main() {
 
     loop { 
         clear_background(BLACK);
-
+        t = get_frame_time() * speed;
         for particle in particles.iter_mut() {
 
             if particle.y + particle.radius > floor.start.y {
                 particle.y = floor.start.y - particle.radius;
                 particle.velocity = -particle.velocity * restitution;
-                if particle.velocity.abs() < 10.0 {
+                if particle.velocity.abs() < 5.0 {
                     particle.velocity = 0.0;
                 }
             }
