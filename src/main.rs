@@ -43,7 +43,6 @@ async fn main() {
     let width = macroquad::window::screen_width();
     let height = macroquad::window::screen_height();
     let radius = 10.0;
-    let mut t = 0.001;
     let restitution = 0.6;
     let speed = 10.0;
 
@@ -69,7 +68,7 @@ async fn main() {
 
     loop { 
         clear_background(BLACK);
-        t = get_frame_time() * speed;
+        let t = get_frame_time() * speed;
 
         for particle in particles.iter_mut() {
             fall_under_gravity(particle, 9.8, t);
