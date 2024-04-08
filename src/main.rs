@@ -44,7 +44,7 @@ async fn main() {
     let radius = 10.0;
     let mut t = 0.001;
     let restitution = 0.6;
-    let speed = 1.0;
+    let speed = 10.0;
 
     let floor = Line {
         start: Position { x: 0.0, y: height / 1.5 },
@@ -52,27 +52,32 @@ async fn main() {
         color: WHITE,
     };
 
+    let mut particles: Vec<Particle> = Vec::new();
 
-
-    let mut particle = Particle {
-        position: Position {x : width / 2.0, y: 60.0},
-        radius: radius,
-        color: WHITE,
-        velocity: 0.0,
-    };
+    for i in 0..10 {
+        particles.push(Particle {
+            position: Position {
+                x: i as f32 * 60.0 + 60.0,
+                y: 60.0,
+            },
+            radius: radius,
+            color: WHITE,
+            velocity: gen_range(0.0, 10.0),
+        });
+    }
 
     loop { 
         clear_background(BLACK);
         t = get_frame_time() * speed;
-        fall_under_gravity(&mut particle, 9.8, t);
 
-        if particle.position.y + particle.radius > floor.start.y {
-            particle.position.y = floor.start.y - particle.radius;
-            particle.velocity = -particle.velocity * restitution;
+        for particle in particles.iter_mut() {
+            fall_under_gravity(particle, 9.8, t);
+            if particle.position.y + particle.radius > floor.start.y {
+                particle.position.y = floor.start.y - particle.radius;
+                particle.velocity = -particle.velocity * restitution;
+            }
+            draw_circle(particle.position.x, particle.position.y, particle.radius, particle.color);
         }
-
-        draw_circle(particle.position.x, particle.position.y, particle.radius, particle.color);
-
 
         draw_line(
             floor.start.x,
