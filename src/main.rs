@@ -241,9 +241,9 @@ fn pick_one_color() -> Color {
 async fn main() {
     let width = macroquad::window::screen_width();
     let height = macroquad::window::screen_height();
-    let radius = 5.0;
-    let speed = 1.3;
-    let num_particles = 1000;
+    let radius = 3.0;
+    let speed = 3.0;
+    let num_particles = 5000;
     let mut particles: Vec<Particle> = Vec::new();
 
     let mut quadtree = QuadTree::new(Rectangle {
@@ -261,7 +261,6 @@ async fn main() {
         let velocity_x = gen_range(-30.0, 30.0);
         let velocity_y = gen_range(-30.0, 30.0);
         let random_color = pick_one_color();
-
         let particle = Particle::new(Position {
             x: start_x,
             y: start_y,
@@ -286,11 +285,11 @@ async fn main() {
             };
 
             let mut near_particles = quadtree.query(&Rectangle {
-                height: 4.0 * radius,
-                width: 4.0 * radius,
+                height: 1.5 * radius,
+                width: 1.5 * radius,
                 position: Position {
-                    x: next_time_position.x - 4.0 * radius,
-                    y: next_time_position.y - 4.0 * radius
+                    x: next_time_position.x - 1.5 * radius,
+                    y: next_time_position.y - 1.5 * radius
                 }
             });
 
@@ -304,21 +303,24 @@ async fn main() {
                     let direction_x = dx / distance_magnitude;
                     let direction_y = dy / distance_magnitude;
 
-                    if near_particle.color == particle.color {
-                        let particle_velocity_mag = (particle.velocity.x.powi(2) + particle.velocity.y.powi(2)).sqrt();
-                        let near_particle_velocity_mag = (near_particle.velocity.x.powi(2) + near_particle.velocity.y.powi(2)).sqrt();
+                    let strength = 200.0;
+                    let attractive_force = strength / distance_magnitude;
 
-                        let strength = 10.0;
-                        let distance_magnitude = distance_magnitude.max(0.5);
-                        let attractive_force = strength / distance_magnitude;
+                    if near_particle.color != particle.color {
+                        //repulsive force
+                         particle.velocity.x -= attractive_force * direction_x * t;
+                         particle.velocity.y -= attractive_force * direction_y * t;
 
-                        particle.velocity.x += direction_x * attractive_force;
-                        particle.velocity.y += direction_y * attractive_force;
+                        near_particle.velocity.x += attractive_force * direction_x * t;
+                        near_particle.velocity.y += attractive_force * direction_y * t;
+                    } else {
+                        //attractive force
+                        particle.velocity.x += attractive_force * direction_x * t;
+                        particle.velocity.y += attractive_force * direction_y * t;
 
-                        near_particle.velocity.x -= direction_x * attractive_force;
-                        near_particle.velocity.y -= direction_y * attractive_force;
+                        near_particle.velocity.x -= attractive_force * direction_x * t;
+                        near_particle.velocity.y -= attractive_force * direction_y * t;
                     }
-
                     if distance_squared < 4.0 * radius.powi(2) {
                         let distance = distance_squared.sqrt();
                         let nx = dx / distance;
@@ -332,11 +334,11 @@ async fn main() {
                         if dot_product < 0.0 {
                             let impulse_x = dot_product * nx;
                             let impulse_y = dot_product * ny;
-            
-                            near_particle.velocity.x -= impulse_x;
-                            near_particle.velocity.y -= impulse_y;
-                            particle.velocity.x += impulse_x;
-                            particle.velocity.y += impulse_y;
+                            let restituion = 0.5;
+                            near_particle.velocity.x -= impulse_x * restituion;
+                            near_particle.velocity.y -= impulse_y * restituion;
+                            particle.velocity.x += impulse_x * restituion;
+                            particle.velocity.y += impulse_y * restituion;
                         }
                     }
                 }
@@ -351,6 +353,9 @@ async fn main() {
             if next_time_position.y < radius || next_time_position.y + radius > height {
                 particle.velocity.y = -particle.velocity.y;
             }
+
+            particle.velocity.x = particle.velocity.x * 0.99;
+            particle.velocity.y = particle.velocity.y * 0.99;
 
             move_particle(particle, t);
             quadtree.insert(Some(particle.clone()));
