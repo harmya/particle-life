@@ -40,31 +40,46 @@ fn get_random_color() -> Color {
 }
 
 fn lerp_to_random_position(current: &mut Particle, t: f32) {
-    if current.destination.x - current.position.x < current.radius && 
-                current.destination.y - current.position.y < current.radius {
+    let screen_width = macroquad::window::screen_width();
+    let screen_height = macroquad::window::screen_height();
+
+    // Check if the particle is within 30 units of its destination
+    if (current.destination.x - current.position.x).abs() < 30.0 && 
+       (current.destination.y - current.position.y).abs() < 30.0 {
         
-        let mut new_x = gen_range(current.position.x - 80.0, current.position.x + 80.0);
-        if current.position.x - 80.0 < 0.0 {
-            new_x = gen_range(50.0, 100.0);
-        } else if current.position.x + 80.0 > macroquad::window::screen_width() {
-            new_x = gen_range(macroquad::window::screen_width() - 150.0, macroquad::window::screen_width() - 100.0);
-        }
+        // Generate a new x position within a bound, check edge conditions
+        let new_x = if current.position.x < 80.0 {
+            // Near left edge
+            gen_range(current.position.x, current.position.x + 160.0)
+        } else if current.position.x > screen_width - 80.0 {
+            // Near right edge
+            gen_range(current.position.x - 160.0, current.position.x)
+        } else {
+            // Not near horizontal edges
+            gen_range(current.position.x - 80.0, current.position.x + 80.0)
+        };
 
-        let mut new_y = gen_range(current.position.y - 80.0, current.position.y + 80.0);
-        if current.position.y - 80.0 < 0.0 {
-            new_y = gen_range(50.0, 100.0);
-        } else if current.position.y + 80.0 > macroquad::window::screen_height() {
-            new_y = gen_range(macroquad::window::screen_height() - 150.0, macroquad::window::screen_height() - 100.0);
-        }
+        // Generate a new y position within a bound, check edge conditions
+        let new_y = if current.position.y < 80.0 {
+            // Near top edge
+            gen_range(current.position.y, current.position.y + 160.0)
+        } else if current.position.y > screen_height - 80.0 {
+            // Near bottom edge
+            gen_range(current.position.y - 160.0, current.position.y)
+        } else {
+            // Not near vertical edges
+            gen_range(current.position.y - 80.0, current.position.y + 80.0)
+        };
 
+        // Set the new destination
         current.destination = Position {
             x: new_x,
             y: new_y,
         };
     }
-    
     lerp(&mut current.position, &current.destination, t);
 }
+
 
 #[macroquad::main(window_conf)]
 async fn main() {
@@ -72,11 +87,12 @@ async fn main() {
     let height = macroquad::window::screen_height();
     let radius = 8.0;
     let restitution = 0.6;
-    let speed = 1.0;
+    let speed = 10.0;
+    let num_particles = 100;
 
     let mut particles: Vec<Particle> = Vec::new();
 
-    for i in 0..50 {
+    for i in 0..100 {
         let start_x = gen_range(50.0, width - 50.0);
         let start_y = gen_range(50.0, height - 50.0);
         particles.push(Particle {
