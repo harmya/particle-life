@@ -27,7 +27,93 @@ struct Rectangle {
 }
 
 struct QuadTree {
-    boundary: Rectangle
+    boundary: Rectangle,
+    capacity: u32,
+    points: Vec<Position>,
+    is_divided: bool,
+    top_left: Option<Box<QuadTree>>,
+    top_right: Option<Box<QuadTree>>,
+    bottom_left: Option<Box<QuadTree>>,
+    bottom_right: Option<Box<QuadTree>>,
+}
+
+impl QuadTree {
+    fn new(boundary: Rectangle, capacity: u32) -> QuadTree {
+        QuadTree {
+            boundary,
+            capacity,
+            points: Vec::new(),
+            is_divided: false,
+            top_left: None,
+            top_right: None,
+            bottom_left: None,
+            bottom_right: None,
+        }
+    }
+
+    fn subdivide(&mut self) {
+        let x = self.boundary.position.x;
+        let y = self.boundary.position.y;
+        let w = self.boundary.width;
+        let h = self.boundary.height;
+        let new_capacity = self.capacity * 4;
+
+        let top_left = QuadTree::new(Rectangle {
+            position: Position {
+                x: x,
+                y: y,
+            },
+            width: w / 2.0,
+            height: h / 2.0,
+        }, self.capacity);
+
+        let top_right = QuadTree::new(Rectangle {
+            position: Position {
+                x: x + w / 2.0,
+                y: y,
+            },
+            width: w / 2.0,
+            height: h / 2.0,
+        }, self.capacity);
+
+        let bottom_left = QuadTree::new(Rectangle {
+            position: Position {
+                x: x,
+                y: y + h / 2.0,
+            },
+            width: w / 2.0,
+            height: h / 2.0,
+        }, self.capacity);
+
+        let bottom_right = QuadTree::new(Rectangle {
+            position: Position {
+                x: x + w / 2.0,
+                y: y + h / 2.0,
+            },
+            width: w / 2.0,
+            height: h / 2.0,
+        }, self.capacity);
+
+        self.top_left = Some(Box::new(top_left));
+        self.top_right = Some(Box::new(top_right));
+        self.bottom_left = Some(Box::new(bottom_left));
+        self.bottom_right = Some(Box::new(bottom_right));
+        self.is_divided = true;
+        self.capacity = new_capacity;
+
+    }
+
+    fn insert(&mut self, point: Position) {
+        if self.points.len() < self.capacity as usize {
+            self.points.push(point);
+        } else {
+            if !self.is_divided {
+                self.subdivide();
+            }
+        }
+    }
+
+
 }
 
 fn lerp(current: &mut Position, target: &Position, t: f32) {
@@ -99,6 +185,24 @@ fn draw_rect(rect: &Rectangle) {
     draw_line(rect.position.x, rect.position.y + rect.height, rect.position.x + rect.width, rect.position.y + rect.height, 1.0, WHITE);
 }
 
+fn draw_quadtree(quadtree: &QuadTree) {
+    draw_rect(&quadtree.boundary);
+    if quadtree.is_divided {
+        if let Some(top_left) = &quadtree.top_left {
+            draw_quadtree(top_left);
+        }
+        if let Some(top_right) = &quadtree.top_right {
+            draw_quadtree(top_right);
+        }
+        if let Some(bottom_left) = &quadtree.bottom_left {
+            draw_quadtree(bottom_left);
+        }
+        if let Some(bottom_right) = &quadtree.bottom_right {
+            draw_quadtree(bottom_right);
+        }
+    }
+}
+
 #[macroquad::main(window_conf)]
 async fn main() {
     let width = macroquad::window::screen_width();
@@ -109,17 +213,14 @@ async fn main() {
     let num_particles = 100;
     let mut particles: Vec<Particle> = Vec::new();
 
-    let mut quadtree = QuadTree {
-        boundary: Rectangle {
-            height: height - 5.0,
-            width: width - 5.0,
-            position: Position {
-                x: 5.0,
-                y: 5.0,
-            }
+    let mut quadtree = QuadTree::new(Rectangle {
+        height: height - 5.0,
+        width: width - 5.0,
+        position: Position {
+            x: 5.0,
+            y: 5.0,
         }
-    };
-
+    }, 4);
 
     for i in 0..100 {
         let start_x = gen_range(50.0, width - 50.0);
@@ -149,7 +250,7 @@ async fn main() {
             lerp_to_random_position(particle, t);
             draw_circle(particle.position.x, particle.position.y, particle.radius, particle.color);
         }
-        draw_rect(&quadtree.boundary);
+        draw_quadtree(&quadtree);
         next_frame().await;
     }
 
