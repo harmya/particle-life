@@ -1,3 +1,6 @@
+use std::borrow::Borrow;
+use std::path::Path;
+
 use macroquad::rand::gen_range;
 use macroquad::prelude::*;
 
@@ -125,34 +128,69 @@ impl QuadTree {
         return x >= bx && x <= bx + w && y >= by && y <= by + h;
     }
 
-    fn insert(&mut self, point: Particle) -> bool {
+    fn insert(&mut self, particle: Option<Particle>) -> Option<Particle> {
 
-        if !self.within_boundary(&point.position) {
-            return false;
+        if particle.is_none() {
+            return None;
+        }
+
+        if !self.within_boundary(&particle.as_ref().unwrap().position) {
+            return Some(particle.unwrap());
         }
 
         if self.points.len() < self.capacity as usize {
-            self.points.push(point);
-            return true;
+            self.points.push(particle.unwrap());
+            return None;
         } else {
             if !self.is_divided {
                 self.subdivide();
             }
 
-            if self.top_left.as_mut().unwrap().insert(point.clone()) {
-                return true;
-            } else if self.top_right.as_mut().unwrap().insert(point.clone()) {
-                return true;
-            } else if self.bottom_left.as_mut().unwrap().insert(point.clone()) {
-                return true;
-            } else if self.bottom_right.as_mut().unwrap().insert(point.clone()) {
-                return true;
-            }
+            let return_particle = self.top_left.as_mut().unwrap().insert(particle);
+            let return_particle = self.top_right.as_mut().unwrap().insert(return_particle);
+            let return_particle = self.bottom_left.as_mut().unwrap().insert(return_particle);
+            let return_particle = self.bottom_right.as_mut().unwrap().insert(return_particle);
             
-            return false;
+            return return_particle;
             
         }
 
+    }
+
+    fn does_range_overlap(&self, range: &Rectangle) -> bool {
+        let x = range.position.x;
+        let y = range.position.y;
+        let w = range.width;
+        let h = range.height;
+
+        let bx = self.boundary.position.x;
+        let by = self.boundary.position.y;
+        let bw = self.boundary.width;
+        let bh = self.boundary.height;
+
+        return x + w >= bx && x <= bx + bw && y + h >= by && y <= by + bh;
+    }
+
+    fn query(&self, range: &Rectangle) -> Vec<Particle> {
+        let mut found = Vec::new();
+        if !self.does_range_overlap(&range) {
+            return found;
+        } else {
+            for point in self.points.iter() {
+                if self.within_boundary(point.position.borrow()) {
+                    found.push(point.clone());
+                }
+            }
+
+            if self.is_divided {
+                found.append(&mut self.top_left.as_ref().unwrap().query(range));
+                found.append(&mut self.top_right.as_ref().unwrap().query(range));
+                found.append(&mut self.bottom_left.as_ref().unwrap().query(range));
+                found.append(&mut self.bottom_right.as_ref().unwrap().query(range));
+            }
+            
+        }
+        return found;
     }
 
     fn clear_quadtree(&mut self) {
@@ -168,11 +206,6 @@ impl QuadTree {
 fn lerp(current: &mut Position, target: &Position, t: f32) {
     current.x = current.x + (target.x - current.x) * t;
     current.y = current.y + (target.y - current.y) * t;
-}
-
-fn fall_under_gravity(particle: &mut Particle, g: f32, t: f32) {
-    particle.position.y = particle.position.y + particle.velocity * t + 0.5 * g * t * t;
-    particle.velocity = particle.velocity + g * t;
 }
 
 fn get_random_color() -> Color {
@@ -258,7 +291,6 @@ async fn main() {
     let width = macroquad::window::screen_width();
     let height = macroquad::window::screen_height();
     let radius = 8.0;
-    let restitution = 0.6;
     let speed = 1.0;
     let num_particles = 100;
     let mut particles: Vec<Particle> = Vec::new();
@@ -272,7 +304,7 @@ async fn main() {
         }
     }, 4);
 
-    for i in 0..100 {
+    for _ in 0..num_particles {
         let start_x = gen_range(50.0, width - 50.0);
         let start_y = gen_range(50.0, height - 50.0);
         let particle = Particle::new(Position {
@@ -280,7 +312,7 @@ async fn main() {
             y: start_y,
         }, radius, get_random_color(), gen_range(0.0, 10.0));
         particles.push(particle.clone());
-        quadtree.insert(particle);
+        quadtree.insert(Some(particle));
     }
 
 
@@ -290,13 +322,12 @@ async fn main() {
         quadtree.clear_quadtree();
         for particle in particles.iter_mut() {
             lerp_to_random_position(particle, t);
-            quadtree.insert(particle.clone());
+            quadtree.insert(Some(particle.clone()));
             draw_circle(particle.position.x, particle.position.y, particle.radius, particle.color);
         }
         draw_quadtree(&quadtree);
         next_frame().await;
     }
-
 }
 
 fn window_conf() -> Conf {
