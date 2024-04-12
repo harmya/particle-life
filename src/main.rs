@@ -313,8 +313,8 @@ async fn main() {
                         let dot_product = vx * nx + vy * ny;
 
                         if dot_product < 0.0 {
-                            let impulse_x = 2.0 * dot_product * nx;
-                            let impulse_y = 2.0 * dot_product * ny;
+                            let impulse_x = dot_product * nx;
+                            let impulse_y = dot_product * ny;
             
                             near_particle.velocity.x -= impulse_x;
                             near_particle.velocity.y -= impulse_y;
@@ -326,12 +326,12 @@ async fn main() {
             }
             
 
-            if next_time_position.x < 0.0 || next_time_position.x > width {
+            if next_time_position.x < radius || next_time_position.x + radius > width {
                 particle.velocity.x = -particle.velocity.x;
                 
             }
 
-            if next_time_position.y < 0.0 || next_time_position.y > height {
+            if next_time_position.y < radius || next_time_position.y + radius > height {
                 particle.velocity.y = -particle.velocity.y;
             }
 
