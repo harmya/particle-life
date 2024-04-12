@@ -204,14 +204,6 @@ fn move_particle(particle: &mut Particle, t: f32) {
     particle.position.y = particle.position.y + particle.velocity.y * t;
 }
 
-fn get_random_color() -> Color {
-    Color {
-        r: gen_range(0.0, 1.0),
-        g: gen_range(0.0, 1.0),
-        b: gen_range(0.0, 1.0),
-        a: 1.0,
-    }
-}
 
 fn draw_rect(rect: &Rectangle) {
     //draw a hollow rectangle
@@ -239,6 +231,11 @@ fn draw_quadtree(quadtree: &QuadTree) {
     }
 }
 
+fn pick_one_color() -> Color {
+    let colors = vec![RED, GREEN, BLUE, YELLOW, PURPLE];
+    let index = gen_range(0, colors.len());
+    return colors[index];
+}
 
 #[macroquad::main(window_conf)]
 async fn main() {
@@ -261,9 +258,9 @@ async fn main() {
     for _ in 0..num_particles {
         let start_x = gen_range(50.0, width - 50.0);
         let start_y = gen_range(50.0, height - 50.0);
-        let velocity_x = gen_range(-20.0, 20.0);
-        let velocity_y = gen_range(-20.0, 20.0);
-        let random_color = get_random_color();
+        let velocity_x = gen_range(-25.0, 25.0);
+        let velocity_y = gen_range(-25.0, 25.0);
+        let random_color = pick_one_color();
         let particle = Particle::new(Position {
             x: start_x,
             y: start_y,
