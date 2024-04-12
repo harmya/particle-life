@@ -1,5 +1,4 @@
 use std::borrow::Borrow;
-use std::path::Path;
 
 use macroquad::rand::gen_range;
 use macroquad::prelude::*;
@@ -28,12 +27,6 @@ impl Particle {
             destination: position,
         }
     }
-}
-
-struct Line {
-    start: Position,
-    end: Position,
-    color: Color,
 }
 
 struct Rectangle {
@@ -218,7 +211,7 @@ fn get_random_color() -> Color {
 }
 
 
-fn lerp_to_random_position(current: &mut Particle, t: f32, collison: bool) {
+fn lerp_to_random_position(current: &mut Particle, t: f32) {
     let screen_width = macroquad::window::screen_width();
     let screen_height = macroquad::window::screen_height();
 
@@ -354,13 +347,13 @@ async fn main() {
                             y: particle.position.y - 20.0 * particle.velocity * collision_angle.sin(),
                         };
                         collision = true;
-                        lerp_to_random_position(particle, t, true);
+                        lerp_to_random_position(particle, t);
                     }
                 }
             }
             
             if !collision {
-                lerp_to_random_position(particle, t, false);
+                lerp_to_random_position(particle, t);
             }
             
             quadtree.insert(Some(particle.clone()));
