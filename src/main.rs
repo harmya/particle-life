@@ -292,8 +292,8 @@ async fn main() {
     let width = macroquad::window::screen_width();
     let height = macroquad::window::screen_height();
     let radius = 8.0;
-    let speed = 0.5;
-    let num_particles = 100;
+    let speed = 1.5;
+    let num_particles = 200;
     let mut particles: Vec<Particle> = Vec::new();
 
     let mut quadtree = QuadTree::new(Rectangle {
@@ -345,6 +345,10 @@ async fn main() {
 
                     if distance < min_distance {
                         let collision_angle = (near_particle.position.y - particle.position.y).atan2(near_particle.position.x - particle.position.x);
+
+                        particle.position.x = particle.position.x - 4.0 * collision_angle.cos();
+                        particle.position.y = particle.position.y - 4.0 * collision_angle.sin();
+
                         particle.destination = Position {
                             x: particle.position.x - 20.0 * particle.velocity * collision_angle.cos(),
                             y: particle.position.y - 20.0 * particle.velocity * collision_angle.sin(),
