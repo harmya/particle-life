@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 
 use macroquad::rand::gen_range;
-use macroquad::{color, prelude::*};
+use macroquad::{prelude::*};
 
 #[derive(Clone, Copy)]
 struct Position {
@@ -274,8 +274,20 @@ fn red_to_red (matrix: &mut Vec<Vec<f64>>) {
     matrix[0][0] = 1.0;
 }
 
+fn away_green_to_red (matrix: &mut Vec<Vec<f64>>) {
+    matrix[1][0] = -0.8;
+}
+
+fn green_to_green (matrix: &mut Vec<Vec<f64>>) {
+    matrix[1][1] = 1.0;
+}
+
 fn green_to_red (matrix: &mut Vec<Vec<f64>>) {
-    matrix[1][0] = 0.3;
+    matrix[1][0] = 0.8;
+}
+
+fn away_red_to_green (matrix: &mut Vec<Vec<f64>>) {
+    matrix[0][1] = -0.5;
 }
 
 fn color_to_index(color: Color) -> usize {
@@ -309,7 +321,7 @@ async fn main() {
     let width = macroquad::window::screen_width() as f64;
     let height = macroquad::window::screen_height() as f64;
     let radius = 2.0;
-    let num_particles: u32 = 1000;
+    let num_particles: u32 = 1500;
     let mut particles: Vec<Particle> = Vec::new();
 
     let mut quadtree = QuadTree::new(Rectangle {
@@ -324,8 +336,8 @@ async fn main() {
     for _ in 0..num_particles {
         let random_color = pick_one_color();
         let location = Position {
-            x: gen_range(radius + 5.0, radius + width - 5.0),
-            y: gen_range(radius + 5.0, radius + height - 5.0),
+            x: gen_range(radius + 50.0, radius + width - 50.0),
+            y: gen_range(radius + 50.0, radius + height - 50.0),
         };
 
         let velocity_x = gen_range(-10.0, 10.0);
@@ -343,13 +355,19 @@ async fn main() {
     let mut i: u128 = 0;
     loop { 
         i += 1;
-        if i % 500 == 0 {
+        if i % 100 == 0 {
             red_to_red(&mut color_matrix);
         }
-        if i % 1000 == 0 {
-             green_to_red(&mut color_matrix);
+
+        if i % 200 == 0 {
+            green_to_green(&mut color_matrix);
         }
-        
+
+        if i % 300 == 0 {
+            green_to_red(&mut color_matrix);
+            away_red_to_green(&mut color_matrix);
+        }
+
         clear_background(BLACK);
         let t = get_frame_time() as f64;
         quadtree.clear_quadtree();
@@ -359,7 +377,7 @@ async fn main() {
                 y: particle.position.y + particle.velocity.y * t,
             };
 
-            let threshold = 100.0;
+            let threshold = 200.0;
 
             let mut near_particles = quadtree.query(&Rectangle {
                 height: threshold * 2.0,
@@ -393,6 +411,7 @@ async fn main() {
           
             let velocity_decay = 0.5f64.powf(t/0.02);
             particle.velocity.x = velocity_decay * particle.velocity.x + final_acceleration_x * t;
+
             particle.velocity.y = velocity_decay * particle.velocity.y + final_acceleration_y * t;
 
             move_particle(particle, t, width, height, radius);
@@ -407,8 +426,8 @@ async fn main() {
 fn window_conf() -> Conf {
     Conf {
         window_title: "Particle Life".to_owned(),
-        window_width: 500,
-        window_height: 500,
+        window_width: 1280,
+        window_height: 900,
         ..Default::default()
     }
 }
