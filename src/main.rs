@@ -241,9 +241,9 @@ fn pick_one_color() -> Color {
 async fn main() {
     let width = macroquad::window::screen_width();
     let height = macroquad::window::screen_height();
-    let radius = 8.0;
+    let radius = 5.0;
     let speed = 1.3;
-    let num_particles = 200;
+    let num_particles = 1000;
     let mut particles: Vec<Particle> = Vec::new();
 
     let mut quadtree = QuadTree::new(Rectangle {
@@ -258,8 +258,8 @@ async fn main() {
     for _ in 0..num_particles {
         let start_x = gen_range(50.0, width - 50.0);
         let start_y = gen_range(50.0, height - 50.0);
-        let velocity_x = gen_range(-25.0, 25.0);
-        let velocity_y = gen_range(-25.0, 25.0);
+        let velocity_x = gen_range(-30.0, 30.0);
+        let velocity_y = gen_range(-30.0, 30.0);
         let random_color = pick_one_color();
         let particle = Particle::new(Position {
             x: start_x,
@@ -298,7 +298,23 @@ async fn main() {
                     let dx = near_particle.position.x - particle.position.x;
                     let dy = near_particle.position.y - particle.position.y;
                     let distance_squared = dx.powi(2) + dy.powi(2);
-                    
+                    let magnitude = distance_squared.sqrt();
+
+                    let direction_x = dx / magnitude;
+                    let direction_y = dy / magnitude;
+
+                    if near_particle.color == particle.color {
+                        let particle_velocity_mag = (particle.velocity.x.powi(2) + particle.velocity.y.powi(2)).sqrt();
+                        let near_particle_velocity_mag = (near_particle.velocity.x.powi(2) + near_particle.velocity.y.powi(2)).sqrt();
+
+                        particle.velocity.x = direction_x * particle_velocity_mag;
+                        particle.velocity.y = direction_y * particle_velocity_mag;
+
+                        near_particle.velocity.x = direction_x * near_particle_velocity_mag;
+                        near_particle.velocity.y = direction_y * near_particle_velocity_mag;
+                    }
+                
+
                     if distance_squared < 4.0 * radius.powi(2) {
                         let distance = distance_squared.sqrt();
                         let nx = dx / distance;
@@ -336,7 +352,7 @@ async fn main() {
             quadtree.insert(Some(particle.clone()));
             draw_circle(particle.position.x, particle.position.y, radius, particle.color);
         }
-        draw_quadtree(&quadtree);
+        //draw_quadtree(&quadtree);
         next_frame().await;
     }
 }
