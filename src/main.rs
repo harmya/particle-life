@@ -239,7 +239,7 @@ fn draw_quadtree(quadtree: &QuadTree) {
 }
 
 fn pick_one_color() -> Color {
-    let colors = vec![RED, GREEN, BLUE, YELLOW];
+    let colors = vec![RED, GREEN];
     let index = gen_range(0, colors.len());
     return colors[index];
 }
@@ -248,18 +248,27 @@ fn colour_attraction_factor_matrix() -> Vec<Vec<f64>> {
     //red, green, blue, yellow
     //make random matrix
     let mut matrix = vec![vec![0.0; 4]; 4];
-    for i in 0..4 {
-        for j in 0..4 {
-            if i == j {
-                matrix[i][j] = gen_range(0.5, 1.0);
-            } else {
-                matrix[i][j] = gen_range(-1.0, 1.0);
-            }
-        }
-    }
+    matrix[0][0] = 1.0;
+
+    // for i in 0..4 {
+    //     for j in 0..4 {
+    //         if i == j {
+    //             matrix[i][j] = gen_range(0.5, 1.0);
+    //         } else {
+    //             matrix[i][j] = gen_range(-1.0, 1.0);
+    //         }
+    //     }
+    // }
     return matrix;
 }
 
+fn green_to_red (matrix: &mut Vec<Vec<f64>>) {
+    matrix[1][0] = 0.2;
+}
+
+fn red_away_from_green (matrix: &mut Vec<Vec<f64>>) {
+    matrix[0][1] = -1.0;
+}
 
 fn color_to_index(color: Color) -> usize {
     if color == RED {
@@ -277,7 +286,7 @@ fn get_force(r: f64, p1_color: Color, p2_color: Color, color_matrix: &Vec<Vec<f6
     let c_1_idx = color_to_index(p1_color);
     let c_2_idx = color_to_index(p2_color);
     let attraction_factor = color_matrix[c_1_idx][c_2_idx];
-    const BETA : f64 = 0.4;
+    const BETA : f64 = 0.3;
     if r < BETA {
         return r / BETA - 1.0;
     } else if BETA < r && r < 1.0 {
@@ -291,9 +300,8 @@ fn get_force(r: f64, p1_color: Color, p2_color: Color, color_matrix: &Vec<Vec<f6
 async fn main() {
     let width = macroquad::window::screen_width() as f64;
     let height = macroquad::window::screen_height() as f64;
-    let radius = 3.0;
-    let speed = 8.0;
-    let num_particles = 1000;
+    let radius = 1.0;
+    let num_particles = 1500;
     let mut particles: Vec<Particle> = Vec::new();
 
     let mut quadtree = QuadTree::new(Rectangle {
@@ -312,8 +320,8 @@ async fn main() {
             y: gen_range(radius + 5.0, radius + height - 5.0),
         };
 
-        let velocity_x = gen_range(-1.0, 1.0);
-        let velocity_y = gen_range(-1.0, 1.0);
+        let velocity_x = gen_range(-0.0, 0.0);
+        let velocity_y = gen_range(-0.0, 0.0);
         let particle = Particle::new(location, random_color, Velocity {
             x: velocity_x,
             y: velocity_y,
@@ -327,8 +335,14 @@ async fn main() {
     let mut i: u128 = 0;
     loop { 
         i += 1;
+        if i % 500 == 0 {
+            green_to_red(&mut color_matrix);
+        }
+        if i % 1000 == 0 {
+            red_away_from_green(&mut color_matrix);
+        }
         clear_background(BLACK);
-        let t = get_frame_time() as f64 * speed;
+        let t = get_frame_time() as f64;
         quadtree.clear_quadtree();
         for particle in particles.iter_mut() {
             let next_time_position = Position {
@@ -336,36 +350,33 @@ async fn main() {
                 y: particle.position.y + particle.velocity.y * t,
             };
 
-            let threshold = 50.0;
+            let threshold = 100.0;
 
             let mut near_particles = quadtree.query(&Rectangle {
-                height: threshold,
-                width: threshold,
+                height: threshold * 2.0,
+                width: threshold * 2.0,
                 position: Position {
-                    x: next_time_position.x - radius - threshold / 2.0, 
-                    y: next_time_position.y - radius - threshold / 2.0,
+                    x: next_time_position.x - radius - threshold,
+                    y: next_time_position.y - radius - threshold,
                 }
             });
 
             let mut final_force_x = 0.0;
             let mut final_force_y = 0.0;
-            let threshold = 100.0;
 
             for near_particle in near_particles.iter_mut() {
-                if near_particle.position.x != particle.position.x && near_particle.position.y != particle.position.y {
-                    let dx = near_particle.position.x - particle.position.x;
-                    let dy = near_particle.position.y - particle.position.y;
-                    let distance_squared = dx.powi(2) + dy.powi(2);
-                    let distance = distance_squared.sqrt();
-                    let direction_x = dx / distance_squared.sqrt();
-                    let direction_y = dy / distance_squared.sqrt();
-
+                
+                let dx = near_particle.position.x - particle.position.x;
+                let dy = near_particle.position.y - particle.position.y;
+                let distance_squared = dx.powi(2) + dy.powi(2);
+                let distance = distance_squared.sqrt();
+                let direction_x = dx / distance_squared.sqrt();
+                let direction_y = dy / distance_squared.sqrt();
+                let force = get_force(distance / threshold, particle.color, near_particle.color, &color_matrix);
+                final_force_x += force * direction_x;
+                final_force_y += force * direction_y;
                     
-                    let force = get_force(distance / threshold, particle.color, near_particle.color, &color_matrix);
-                    final_force_x += force * direction_x;
-                    final_force_y += force * direction_y;
-                    
-                }
+                
             }
             
             let final_acceleration_x = final_force_x * threshold * 2.0;
@@ -392,9 +403,6 @@ async fn main() {
             quadtree.insert(Some(particle.clone()));
             draw_circle(particle.position.x as f32, particle.position.y as f32, radius as f32, particle.color);
         }
-        if i % 500 == 0 {
-            color_matrix = colour_attraction_factor_matrix();
-        }
         //draw_quadtree(&quadtree);
         next_frame().await;
     }
@@ -403,8 +411,8 @@ async fn main() {
 fn window_conf() -> Conf {
     Conf {
         window_title: "Particle Life".to_owned(),
-        window_width: 800,
-        window_height: 800,
+        window_width: 600,
+        window_height: 600,
         ..Default::default()
     }
 }
