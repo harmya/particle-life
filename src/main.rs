@@ -261,6 +261,7 @@ async fn main() {
         let velocity_x = gen_range(-30.0, 30.0);
         let velocity_y = gen_range(-30.0, 30.0);
         let random_color = pick_one_color();
+
         let particle = Particle::new(Position {
             x: start_x,
             y: start_y,
@@ -285,11 +286,11 @@ async fn main() {
             };
 
             let mut near_particles = quadtree.query(&Rectangle {
-                height: 2.0 * radius,
-                width: 2.0 * radius,
+                height: 4.0 * radius,
+                width: 4.0 * radius,
                 position: Position {
-                    x: next_time_position.x - 2.0 * radius,
-                    y: next_time_position.y - 2.0 * radius
+                    x: next_time_position.x - 4.0 * radius,
+                    y: next_time_position.y - 4.0 * radius
                 }
             });
 
@@ -298,22 +299,25 @@ async fn main() {
                     let dx = near_particle.position.x - particle.position.x;
                     let dy = near_particle.position.y - particle.position.y;
                     let distance_squared = dx.powi(2) + dy.powi(2);
-                    let magnitude = distance_squared.sqrt();
+                    let distance_magnitude = distance_squared.sqrt();
 
-                    let direction_x = dx / magnitude;
-                    let direction_y = dy / magnitude;
+                    let direction_x = dx / distance_magnitude;
+                    let direction_y = dy / distance_magnitude;
 
                     if near_particle.color == particle.color {
                         let particle_velocity_mag = (particle.velocity.x.powi(2) + particle.velocity.y.powi(2)).sqrt();
                         let near_particle_velocity_mag = (near_particle.velocity.x.powi(2) + near_particle.velocity.y.powi(2)).sqrt();
 
-                        particle.velocity.x = direction_x * particle_velocity_mag;
-                        particle.velocity.y = direction_y * particle_velocity_mag;
+                        let strength = 10.0;
+                        let distance_magnitude = distance_magnitude.max(0.5);
+                        let attractive_force = strength / distance_magnitude;
 
-                        near_particle.velocity.x = direction_x * near_particle_velocity_mag;
-                        near_particle.velocity.y = direction_y * near_particle_velocity_mag;
+                        particle.velocity.x += direction_x * attractive_force;
+                        particle.velocity.y += direction_y * attractive_force;
+
+                        near_particle.velocity.x -= direction_x * attractive_force;
+                        near_particle.velocity.y -= direction_y * attractive_force;
                     }
-                
 
                     if distance_squared < 4.0 * radius.powi(2) {
                         let distance = distance_squared.sqrt();
