@@ -20,6 +20,16 @@ struct Line {
     color: Color,
 }
 
+struct Rectangle {
+    height: f32,
+    width: f32,
+    position: Position,
+}
+
+struct QuadTree {
+    boundary: Rectangle
+}
+
 fn lerp(current: &mut Position, target: &Position, t: f32) {
     current.x = current.x + (target.x - current.x) * t;
     current.y = current.y + (target.y - current.y) * t;
@@ -38,6 +48,7 @@ fn get_random_color() -> Color {
         a: 1.0,
     }
 }
+
 
 fn lerp_to_random_position(current: &mut Particle, t: f32) {
     let screen_width = macroquad::window::screen_width();
@@ -80,6 +91,13 @@ fn lerp_to_random_position(current: &mut Particle, t: f32) {
     lerp(&mut current.position, &current.destination, t);
 }
 
+fn draw_rect(rect: &Rectangle) {
+    //draw a hollow rectangle
+    draw_line(rect.position.x, rect.position.y, rect.position.x + rect.width, rect.position.y, 1.0, WHITE);
+    draw_line(rect.position.x, rect.position.y, rect.position.x, rect.position.y + rect.height, 1.0, WHITE);
+    draw_line(rect.position.x + rect.width, rect.position.y, rect.position.x + rect.width, rect.position.y + rect.height, 1.0, WHITE);
+    draw_line(rect.position.x, rect.position.y + rect.height, rect.position.x + rect.width, rect.position.y + rect.height, 1.0, WHITE);
+}
 
 #[macroquad::main(window_conf)]
 async fn main() {
@@ -87,10 +105,21 @@ async fn main() {
     let height = macroquad::window::screen_height();
     let radius = 8.0;
     let restitution = 0.6;
-    let speed = 10.0;
+    let speed = 1.0;
     let num_particles = 100;
-
     let mut particles: Vec<Particle> = Vec::new();
+
+    let mut quadtree = QuadTree {
+        boundary: Rectangle {
+            height: height - 5.0,
+            width: width - 5.0,
+            position: Position {
+                x: 5.0,
+                y: 5.0,
+            }
+        }
+    };
+
 
     for i in 0..100 {
         let start_x = gen_range(50.0, width - 50.0);
@@ -120,7 +149,7 @@ async fn main() {
             lerp_to_random_position(particle, t);
             draw_circle(particle.position.x, particle.position.y, particle.radius, particle.color);
         }
-
+        draw_rect(&quadtree.boundary);
         next_frame().await;
     }
 
