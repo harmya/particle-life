@@ -343,10 +343,10 @@ async fn main() {
     let mut i: u128 = 0;
     loop { 
         i += 1;
-        if i % 300 == 0 {
+        if i % 500 == 0 {
             red_to_red(&mut color_matrix);
         }
-        if i % 600 == 0 {
+        if i % 1000 == 0 {
              green_to_red(&mut color_matrix);
         }
         
