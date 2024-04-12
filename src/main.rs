@@ -11,6 +11,7 @@ struct Particle {
     radius: f32,
     color: Color,
     velocity: f32,
+    destination: Position,
 }
 
 struct Line {
@@ -38,55 +39,72 @@ fn get_random_color() -> Color {
     }
 }
 
+fn lerp_to_random_position(current: &mut Particle, t: f32) {
+    if current.destination.x - current.position.x < current.radius && 
+                current.destination.y - current.position.y < current.radius {
+        
+        let mut new_x = gen_range(current.position.x - 80.0, current.position.x + 80.0);
+        if current.position.x - 80.0 < 0.0 {
+            new_x = gen_range(50.0, 100.0);
+        } else if current.position.x + 80.0 > macroquad::window::screen_width() {
+            new_x = gen_range(macroquad::window::screen_width() - 150.0, macroquad::window::screen_width() - 100.0);
+        }
+
+        let mut new_y = gen_range(current.position.y - 80.0, current.position.y + 80.0);
+        if current.position.y - 80.0 < 0.0 {
+            new_y = gen_range(50.0, 100.0);
+        } else if current.position.y + 80.0 > macroquad::window::screen_height() {
+            new_y = gen_range(macroquad::window::screen_height() - 150.0, macroquad::window::screen_height() - 100.0);
+        }
+
+        current.destination = Position {
+            x: new_x,
+            y: new_y,
+        };
+    }
+    
+    lerp(&mut current.position, &current.destination, t);
+}
+
 #[macroquad::main(window_conf)]
 async fn main() {
     let width = macroquad::window::screen_width();
     let height = macroquad::window::screen_height();
-    let radius = 10.0;
+    let radius = 8.0;
     let restitution = 0.6;
-    let speed = 10.0;
-
-    let floor = Line {
-        start: Position { x: 0.0, y: height / 1.5 },
-        end: Position { x: width, y: height / 1.5 },
-        color: WHITE,
-    };
+    let speed = 1.0;
 
     let mut particles: Vec<Particle> = Vec::new();
 
-    for i in 0..15 {
+    for i in 0..50 {
+        let start_x = gen_range(50.0, width - 50.0);
+        let start_y = gen_range(50.0, height - 50.0);
         particles.push(Particle {
             position: Position {
-                x: i as f32 * 60.0 + 60.0,
-                y: 60.0,
+                x: start_x,
+                y: start_y,
             },
             radius: radius,
             color: get_random_color(),
             velocity: gen_range(0.0, 10.0),
+            destination: Position {
+                x: start_x,
+                y: start_y,
+            }
         });
     }
+
+
 
     loop { 
         clear_background(BLACK);
         let t = get_frame_time() * speed;
 
         for particle in particles.iter_mut() {
-            fall_under_gravity(particle, 9.8, t);
-            if particle.position.y + particle.radius > floor.start.y {
-                particle.position.y = floor.start.y - particle.radius;
-                particle.velocity = -particle.velocity * restitution;
-            }
+            lerp_to_random_position(particle, t);
             draw_circle(particle.position.x, particle.position.y, particle.radius, particle.color);
         }
 
-        draw_line(
-            floor.start.x,
-            floor.start.y,
-            floor.end.x,
-            floor.end.y,
-            2.0, 
-            floor.color,
-        );
         next_frame().await;
     }
 
