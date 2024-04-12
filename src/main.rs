@@ -218,43 +218,44 @@ fn get_random_color() -> Color {
 }
 
 
-fn lerp_to_random_position(current: &mut Particle, t: f32) {
+fn lerp_to_random_position(current: &mut Particle, t: f32, collison: bool) {
     let screen_width = macroquad::window::screen_width();
     let screen_height = macroquad::window::screen_height();
 
-    // Check if the particle is within 30 units of its destination
-    if (current.destination.x - current.position.x).abs() < 30.0 && 
-       (current.destination.y - current.position.y).abs() < 30.0 {
+        // Check if the particle is within 30 units of its destination
+        if (current.destination.x - current.position.x).abs() < 30.0 && 
+           (current.destination.y - current.position.y).abs() < 30.0 {
+
+            // Generate a new x position within a bound, check edge conditions
+            let new_x = if current.position.x < 80.0 {
+                // Near left edge
+                gen_range(current.position.x, current.position.x + 160.0)
+            } else if current.position.x > screen_width - 80.0 {
+                // Near right edge
+                gen_range(current.position.x - 160.0, current.position.x)
+            } else {
+                // Not near horizontal edges
+                gen_range(current.position.x - 80.0, current.position.x + 80.0)
+            };
+
+            // Generate a new y position within a bound, check edge conditions
+            let new_y = if current.position.y < 80.0 {
+                // Near top edge
+                gen_range(current.position.y, current.position.y + 160.0)
+            } else if current.position.y > screen_height - 80.0 {
+                // Near bottom edge
+                gen_range(current.position.y - 160.0, current.position.y)
+            } else {
+                // Not near vertical edges
+                gen_range(current.position.y - 80.0, current.position.y + 80.0)
+            };
+
+            // Set the new destination
+            current.destination = Position {
+                x: new_x,
+                y: new_y,
+            };
         
-        // Generate a new x position within a bound, check edge conditions
-        let new_x = if current.position.x < 80.0 {
-            // Near left edge
-            gen_range(current.position.x, current.position.x + 160.0)
-        } else if current.position.x > screen_width - 80.0 {
-            // Near right edge
-            gen_range(current.position.x - 160.0, current.position.x)
-        } else {
-            // Not near horizontal edges
-            gen_range(current.position.x - 80.0, current.position.x + 80.0)
-        };
-
-        // Generate a new y position within a bound, check edge conditions
-        let new_y = if current.position.y < 80.0 {
-            // Near top edge
-            gen_range(current.position.y, current.position.y + 160.0)
-        } else if current.position.y > screen_height - 80.0 {
-            // Near bottom edge
-            gen_range(current.position.y - 160.0, current.position.y)
-        } else {
-            // Not near vertical edges
-            gen_range(current.position.y - 80.0, current.position.y + 80.0)
-        };
-
-        // Set the new destination
-        current.destination = Position {
-            x: new_x,
-            y: new_y,
-        };
     }
     lerp(&mut current.position, &current.destination, t);
 }
@@ -291,7 +292,7 @@ async fn main() {
     let width = macroquad::window::screen_width();
     let height = macroquad::window::screen_height();
     let radius = 8.0;
-    let speed = 1.0;
+    let speed = 0.5;
     let num_particles = 100;
     let mut particles: Vec<Particle> = Vec::new();
 
@@ -321,7 +322,43 @@ async fn main() {
         let t = get_frame_time() * speed;
         quadtree.clear_quadtree();
         for particle in particles.iter_mut() {
-            lerp_to_random_position(particle, t);
+            let near_particle_range = Rectangle {
+                position: Position {
+                    x: particle.position.x - radius * 2.0 + 5.0,
+                    y: particle.position.y - radius * 2.0 + 5.0,
+                },
+                width: radius * 4.0 + 5.0,
+                height: radius * 4.0 + 5.0,
+            };
+            let near_particles = quadtree.query(&near_particle_range);
+            let mut collision = false;
+            //check for collisions
+            for near_particle in near_particles.iter() {
+                if near_particle.position.x != particle.position.x && near_particle.position.y != particle.position.y {
+                    let next_time_position = Position {
+                        x: particle.position.x + particle.velocity * t,
+                        y: particle.position.y + particle.velocity * t,
+                    };
+
+                    let distance = (next_time_position.x - near_particle.position.x).powi(2) + (next_time_position.y - near_particle.position.y).powi(2);
+                    let min_distance = (particle.radius + near_particle.radius).powi(2) + 1.0;
+
+                    if distance < min_distance {
+                        let collision_angle = (near_particle.position.y - particle.position.y).atan2(near_particle.position.x - particle.position.x);
+                        particle.destination = Position {
+                            x: particle.position.x - 20.0 * particle.velocity * collision_angle.cos(),
+                            y: particle.position.y - 20.0 * particle.velocity * collision_angle.sin(),
+                        };
+                        collision = true;
+                        lerp_to_random_position(particle, t, true);
+                    }
+                }
+            }
+            
+            if !collision {
+                lerp_to_random_position(particle, t, false);
+            }
+            
             quadtree.insert(Some(particle.clone()));
             draw_circle(particle.position.x, particle.position.y, particle.radius, particle.color);
         }
