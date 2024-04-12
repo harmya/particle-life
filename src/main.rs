@@ -9,22 +9,25 @@ struct Position {
     y: f32,
 }
 
+#[derive(Clone, Copy)]
+struct Velocity {
+    x: f32,
+    y: f32,
+}
+
 #[derive(Clone)]
 struct Particle {
     position: Position,
-    radius: f32,
     color: Color,
-    velocity: f32,
-    destination: Position,
+    velocity: Velocity,
 }
+
 impl Particle {
-    fn new(position: Position, radius: f32, color: Color, velocity: f32) -> Particle {
+    fn new(position: Position, color: Color, velocity: Velocity) -> Particle {
         Particle {
             position,
-            radius,
             color,
             velocity,
-            destination: position,
         }
     }
 }
@@ -196,9 +199,9 @@ impl QuadTree {
     }
 }
 
-fn lerp(current: &mut Position, target: &Position, t: f32) {
-    current.x = current.x + (target.x - current.x) * t;
-    current.y = current.y + (target.y - current.y) * t;
+fn move_particle(particle: &mut Particle, t: f32) {
+    particle.position.x = particle.position.x + particle.velocity.x * t;
+    particle.position.y = particle.position.y + particle.velocity.y * t;
 }
 
 fn get_random_color() -> Color {
@@ -208,49 +211,6 @@ fn get_random_color() -> Color {
         b: gen_range(0.0, 1.0),
         a: 1.0,
     }
-}
-
-
-fn lerp_to_random_position(current: &mut Particle, t: f32) {
-    let screen_width = macroquad::window::screen_width();
-    let screen_height = macroquad::window::screen_height();
-
-        // Check if the particle is within 30 units of its destination
-        if (current.destination.x - current.position.x).abs() < 30.0 && 
-           (current.destination.y - current.position.y).abs() < 30.0 {
-
-            // Generate a new x position within a bound, check edge conditions
-            let new_x = if current.position.x < 80.0 {
-                // Near left edge
-                gen_range(current.position.x, current.position.x + 160.0)
-            } else if current.position.x > screen_width - 80.0 {
-                // Near right edge
-                gen_range(current.position.x - 160.0, current.position.x)
-            } else {
-                // Not near horizontal edges
-                gen_range(current.position.x - 80.0, current.position.x + 80.0)
-            };
-
-            // Generate a new y position within a bound, check edge conditions
-            let new_y = if current.position.y < 80.0 {
-                // Near top edge
-                gen_range(current.position.y, current.position.y + 160.0)
-            } else if current.position.y > screen_height - 80.0 {
-                // Near bottom edge
-                gen_range(current.position.y - 160.0, current.position.y)
-            } else {
-                // Not near vertical edges
-                gen_range(current.position.y - 80.0, current.position.y + 80.0)
-            };
-
-            // Set the new destination
-            current.destination = Position {
-                x: new_x,
-                y: new_y,
-            };
-        
-    }
-    lerp(&mut current.position, &current.destination, t);
 }
 
 fn draw_rect(rect: &Rectangle) {
@@ -285,7 +245,7 @@ async fn main() {
     let width = macroquad::window::screen_width();
     let height = macroquad::window::screen_height();
     let radius = 8.0;
-    let speed = 1.5;
+    let speed = 1.3;
     let num_particles = 200;
     let mut particles: Vec<Particle> = Vec::new();
 
@@ -301,10 +261,17 @@ async fn main() {
     for _ in 0..num_particles {
         let start_x = gen_range(50.0, width - 50.0);
         let start_y = gen_range(50.0, height - 50.0);
+        let velocity_x = gen_range(-20.0, 20.0);
+        let velocity_y = gen_range(-20.0, 20.0);
+        let random_color = get_random_color();
         let particle = Particle::new(Position {
             x: start_x,
             y: start_y,
-        }, radius, get_random_color(), gen_range(0.0, 10.0));
+        }, random_color, Velocity {
+            x: velocity_x,
+            y: velocity_y,
+        });
+
         particles.push(particle.clone());
         quadtree.insert(Some(particle));
     }
@@ -315,49 +282,62 @@ async fn main() {
         let t = get_frame_time() * speed;
         quadtree.clear_quadtree();
         for particle in particles.iter_mut() {
-            let near_particle_range = Rectangle {
-                position: Position {
-                    x: particle.position.x - radius * 2.0 + 5.0,
-                    y: particle.position.y - radius * 2.0 + 5.0,
-                },
-                width: radius * 4.0 + 5.0,
-                height: radius * 4.0 + 5.0,
+            let next_time_position = Position {
+                x: particle.position.x + particle.velocity.x * t,
+                y: particle.position.y + particle.velocity.y * t,
             };
-            let near_particles = quadtree.query(&near_particle_range);
-            let mut collision = false;
-            //check for collisions
-            for near_particle in near_particles.iter() {
+
+            let mut near_particles = quadtree.query(&Rectangle {
+                height: 2.0 * radius,
+                width: 2.0 * radius,
+                position: Position {
+                    x: next_time_position.x - 2.0 * radius,
+                    y: next_time_position.y - 2.0 * radius
+                }
+            });
+
+            for near_particle in near_particles.iter_mut() {
                 if near_particle.position.x != particle.position.x && near_particle.position.y != particle.position.y {
-                    let next_time_position = Position {
-                        x: particle.position.x + particle.velocity * t,
-                        y: particle.position.y + particle.velocity * t,
-                    };
+                    let dx = near_particle.position.x - particle.position.x;
+                    let dy = near_particle.position.y - particle.position.y;
+                    let distance_squared = dx.powi(2) + dy.powi(2);
+                    
+                    if distance_squared < 4.0 * radius.powi(2) {
+                        let distance = distance_squared.sqrt();
+                        let nx = dx / distance;
+                        let ny = dy / distance;
+            
+                        let vx = near_particle.velocity.x - particle.velocity.x;
+                        let vy = near_particle.velocity.y - particle.velocity.y;
+            
+                        let dot_product = vx * nx + vy * ny;
 
-                    let distance = (next_time_position.x - near_particle.position.x).powi(2) + (next_time_position.y - near_particle.position.y).powi(2);
-                    let min_distance = (particle.radius + near_particle.radius).powi(2) + 1.0;
-
-                    if distance < min_distance {
-                        let collision_angle = (near_particle.position.y - particle.position.y).atan2(near_particle.position.x - particle.position.x);
-
-                        particle.position.x = particle.position.x - 4.0 * collision_angle.cos();
-                        particle.position.y = particle.position.y - 4.0 * collision_angle.sin();
-
-                        particle.destination = Position {
-                            x: particle.position.x - 20.0 * particle.velocity * collision_angle.cos(),
-                            y: particle.position.y - 20.0 * particle.velocity * collision_angle.sin(),
-                        };
-                        collision = true;
-                        lerp_to_random_position(particle, t);
+                        if dot_product < 0.0 {
+                            let impulse_x = 2.0 * dot_product * nx;
+                            let impulse_y = 2.0 * dot_product * ny;
+            
+                            near_particle.velocity.x -= impulse_x;
+                            near_particle.velocity.y -= impulse_y;
+                            particle.velocity.x += impulse_x;
+                            particle.velocity.y += impulse_y;
+                        }
                     }
                 }
             }
             
-            if !collision {
-                lerp_to_random_position(particle, t);
+
+            if next_time_position.x < 0.0 || next_time_position.x > width {
+                particle.velocity.x = -particle.velocity.x;
+                
             }
-            
+
+            if next_time_position.y < 0.0 || next_time_position.y > height {
+                particle.velocity.y = -particle.velocity.y;
+            }
+
+            move_particle(particle, t);
             quadtree.insert(Some(particle.clone()));
-            draw_circle(particle.position.x, particle.position.y, particle.radius, particle.color);
+            draw_circle(particle.position.x, particle.position.y, radius, particle.color);
         }
         draw_quadtree(&quadtree);
         next_frame().await;
